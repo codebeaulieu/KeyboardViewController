@@ -10,19 +10,24 @@ import UIKit
 
 class KeyboardViewController: UIViewController, UIGestureRecognizerDelegate, UITextFieldDelegate, UITextViewDelegate {
     
+    var activeField: UITextField?
+    
     override func viewDidLoad() {
+        
+        
         addObservers()
     }
     
     override func viewWillAppear(_ animated: Bool) {
-        let tap = UITapGestureRecognizer(target: self, action: #selector(handleTap(_:)))
+        let tap = UITapGestureRecognizer(target: self, action: #selector(backgroundTap(_:)))
         tap.delegate = self
+        
         view.isUserInteractionEnabled = true
         view.addGestureRecognizer(tap)
         
     }
     
-    func handleTap(_ sender: UITapGestureRecognizer? = nil) {
+    func backgroundTap(_ sender: UITapGestureRecognizer? = nil) {
         dismissKeyboard()
     }
     
@@ -38,28 +43,42 @@ class KeyboardViewController: UIViewController, UIGestureRecognizerDelegate, UIT
     }
     
     func keyboardWillHide(_ notification: Notification) {
-        if let keyboardHeight = (notification.userInfo?[UIKeyboardFrameBeginUserInfoKey] as? NSValue)?.cgRectValue.size.height {
-            view.frame.origin.y += (keyboardHeight - 30)
-        }
+        
+        view.frame.origin.y += distanceMoved
+        
     }
     
+    var distanceMoved : CGFloat!
+    
     func keyboardWillShow(_ notification: Notification) {
+        guard let activeField = self.activeField else { assertionFailure("this should never fail"); return }
+        let absoluteframe: CGRect = (activeField.convert(activeField.frame, to: UIApplication.shared.keyWindow))
+        
+        print(absoluteframe.origin.y)
         
         if let userInfo = notification.userInfo,
-            let keyboardSize = (userInfo[UIKeyboardFrameBeginUserInfoKey] as? NSValue)?.cgRectValue.size,
-            let offset = (userInfo[UIKeyboardFrameEndUserInfoKey] as? NSValue)?.cgRectValue.size {
+            let keyboardSize = (userInfo[UIKeyboardFrameBeginUserInfoKey] as? NSValue)?.cgRectValue.size {
             
-            if keyboardSize.height == offset.height {
-                if self.view.frame.origin.y == 0 {
-                    UIView.animate(withDuration: 0.1, animations: { () -> Void in
-                        self.view.frame.origin.y -= (keyboardSize.height - 30)
+            var aRect : CGRect = self.view.frame
+            aRect.size.height -= keyboardSize.height
+            
+            if self.view.frame.origin.y == 0 {
+                distanceMoved = (absoluteframe.origin.y - aRect.size.height)
+                if (absoluteframe.origin.y > aRect.size.height){
+                    UIView.animate(withDuration: 0.1, animations: { [weak self] () -> Void in
+                        self!.view.frame.origin.y -= self!.distanceMoved
                     })
                 }
             } else {
-                UIView.animate(withDuration: 0.1, animations: { () -> Void in
-                    self.view.frame.origin.y += (keyboardSize.height - 30) - offset.height
-                })
+                
+                //                if (absoluteframe.origin.y > aRect.size.height){
+                //
+                //                    UIView.animate(withDuration: 0.1, animations: { [weak self] () -> Void in
+                //                        self!.view.frame.origin.y -= 20//((absoluteframe.origin.y - aRect.size.height) + self!.distanceMoved)
+                //                    })
+                //                }
             }
+            
         }
     }
     
@@ -87,12 +106,21 @@ class KeyboardViewController: UIViewController, UIGestureRecognizerDelegate, UIT
         removeObservers()
     }
     
+    func textFieldDidBeginEditing(_ textField: UITextField){
+        activeField = textField
+        
+    }
+    
+    func textFieldDidEndEditing(_ textField: UITextField){
+        activeField = nil
+    }
+    
     override func touchesBegan(_ touches: Set<UITouch>, with event: UIEvent?) {
         self.view.endEditing(true)
     }
     
     func textView(_ textView: UITextView, shouldChangeTextIn range: NSRange, replacementText text: String) -> Bool {
-        if(text == "\n") {
+        if (text == "\n") {
             textView.resignFirstResponder()
             return false
         }
@@ -100,4 +128,5 @@ class KeyboardViewController: UIViewController, UIGestureRecognizerDelegate, UIT
     }
     
 }
+
 
